@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "WebFetch(domain:open.manus.im)"
+      "WebFetch(domain:open.manus.im)",
+      "Bash(python manus_cli.py --no-wait)"
     ]
   }
 }
