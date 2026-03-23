@@ -119,5 +119,3 @@ Max steps per run: **10** — re-run to continue if limit is reached.
 | `File not found: <path>` | Upload path is wrong |
 | `S3 upload failed: <status>` | Second upload step failed |
 | `No response from Manus.` | API returned empty result |
-| `Error: timed out` | Shell command exceeded 60s |
-| `Error: script timed out` | Python script exceeded 120s |

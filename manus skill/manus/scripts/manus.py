@@ -37,7 +37,7 @@ def headers():
 
 def api(method, path, body=None):
     try:
-        r = requests.request(method, BASE_URL + path, json=body, headers=headers(), timeout=30)
+        r = requests.request(method, BASE_URL + path, json=body, headers=headers())
         if r.status_code in (200, 201): return r.json()
         print(f"{RED}Error {r.status_code}: {r.text[:200]}{RESET}"); return None
     except requests.exceptions.ConnectionError:
@@ -58,7 +58,7 @@ def stream_task(task_id):
     shown = 0
     while True:
         try:
-            r = requests.get(f"{BASE_URL}/tasks/{task_id}", headers=headers(), timeout=30)
+            r = requests.get(f"{BASE_URL}/tasks/{task_id}", headers=headers())
             if r.status_code != 200:
                 print(f"\n{RED}Error {r.status_code}{RESET}"); return None
             task = r.json()
@@ -98,7 +98,7 @@ def task_create(prompt, mode="agent", model="manus-1.6", attachments=None):
     if attachments:
         body["attachments"] = attachments
     try:
-        r = requests.post(f"{BASE_URL}/tasks", json=body, headers=headers(), timeout=30)
+        r = requests.post(f"{BASE_URL}/tasks", json=body, headers=headers())
         if r.status_code not in (200, 201):
             print(f"{RED}Error {r.status_code}: {r.text[:200]}{RESET}"); sys.exit(1)
         return r.json()
@@ -239,7 +239,7 @@ def _upload_file(filepath):
         mime, _ = mimetypes.guess_type(filename)
         mime = mime or "application/octet-stream"
         with open(filepath, "rb") as f:
-            s3 = requests.put(upload_url, data=f, headers={"Content-Type": mime}, timeout=60)
+            s3 = requests.put(upload_url, data=f, headers={"Content-Type": mime})
         if s3.status_code not in (200, 204):
             print(f"{RED}S3 upload failed: {s3.status_code}{RESET}"); return None
     print(f"{GREEN}Uploaded: {filename}  (file_id: {file_id}){RESET}")
@@ -305,7 +305,7 @@ def agent_poll(task_id):
     print(f"{DIM}Thinking", end="", flush=True)
     while True:
         try:
-            r = requests.get(f"{BASE_URL}/tasks/{task_id}", headers=headers(), timeout=20)
+            r = requests.get(f"{BASE_URL}/tasks/{task_id}", headers=headers())
             if r.status_code != 200: print(RESET); return ""
             task = r.json()
             print(".", end="", flush=True)
@@ -324,7 +324,7 @@ def ask_manus(prompt):
     try:
         r = requests.post(f"{BASE_URL}/tasks",
             json={"prompt": prompt, "agent_profile": "manus-1.6", "task_mode": "chat"},
-            headers=headers(), timeout=30)
+            headers=headers())
         if r.status_code != 200:
             print(f"{RED}Manus API error: {r.text[:200]}{RESET}"); return ""
         data     = r.json()
@@ -375,12 +375,11 @@ def run_shell(cmd):
         print(f"{CYAN}  > {line}{RESET}")
         try:
             r = subprocess.run(line, shell=True, capture_output=True, text=True,
-                               timeout=60, cwd=os.getcwd())
+                               cwd=os.getcwd())
             o = (r.stdout + r.stderr).strip()
             if o: print(f"{DIM}{o[:500]}{RESET}")
             out.append(f"> {line}\nOutput:\n{o}" if o else f"> {line}\n(ok)")
-        except subprocess.TimeoutExpired: out.append(f"> {line}\nError: timed out")
-        except Exception as e:            out.append(f"> {line}\nError: {e}")
+        except Exception as e: out.append(f"> {line}\nError: {e}")
     return "\n".join(out)
 
 def run_python(code):
@@ -390,12 +389,11 @@ def run_python(code):
     print(f"{DIM}{code[:400]}{RESET}")
     try:
         r = subprocess.run([sys.executable, str(tmp)], capture_output=True,
-                           text=True, timeout=120, cwd=os.getcwd())
+                           text=True, cwd=os.getcwd())
         o = (r.stdout + r.stderr).strip()
         if o: print(f"{DIM}{o[:1000]}{RESET}")
         return o or "(no output)"
-    except subprocess.TimeoutExpired: return "Error: script timed out"
-    except Exception as e:            return f"Error: {e}"
+    except Exception as e: return f"Error: {e}"
 
 def write_file(path, content):
     p = Path(path); p.parent.mkdir(parents=True, exist_ok=True)
