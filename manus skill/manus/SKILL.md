@@ -13,12 +13,12 @@ argument-hint: "<prompt> | tasks | task <id> | delete <id> | files | upload <pat
 
 | Arguments | Runs |
 |-----------|------|
-| `<prompt>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>"` |
-| `<prompt> --mode chat` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --mode chat` |
-| `<prompt> --mode adaptive` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --mode adaptive` |
-| `<prompt> --no-wait` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --no-wait` |
-| `<prompt> --file <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --file <id>` |
-| `<prompt> --url <url>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --url <url>` |
+| `<prompt>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py send "<prompt>"` |
+| `<prompt> --mode chat` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py send "<prompt>" --mode chat` |
+| `<prompt> --mode adaptive` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py send "<prompt>" --mode adaptive` |
+| `<prompt> --no-wait` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py send "<prompt>" --no-wait` |
+| `<prompt> --file <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py send "<prompt>" --file <id>` |
+| `<prompt> --url <url>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py send "<prompt>" --url <url>` |
 | `tasks` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py tasks` |
 | `task <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py task <id>` |
 | `delete <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py delete <id>` |
@@ -36,11 +36,11 @@ $ARGUMENTS
 ## Send a Task
 
 ```
-python manus.py "<prompt>"
-python manus.py "<prompt>" --mode agent|chat|adaptive
-python manus.py "<prompt>" --no-wait
-python manus.py "<prompt>" --file <file_id>
-python manus.py "<prompt>" --url <url>
+python manus.py send "<prompt>"
+python manus.py send "<prompt>" --mode agent|chat|adaptive
+python manus.py send "<prompt>" --no-wait
+python manus.py send "<prompt>" --file <file_id>
+python manus.py send "<prompt>" --url <url>
 ```
 
 - Default mode: `agent` (full reasoning). Use `chat` for fast responses, `adaptive` for auto-select.
