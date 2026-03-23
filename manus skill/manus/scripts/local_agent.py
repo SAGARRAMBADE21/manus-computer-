@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""
-local_agent.py — Run Manus as a local machine agent.
-Manus plans steps, generates commands, you approve each before it runs.
-
-Usage:
-  python local_agent.py "<task>"
-  python local_agent.py "<task>" --yes       # auto-approve all
-  python local_agent.py "<task>" --cwd <dir>
-  python local_agent.py                      # interactive shell
-"""
+"""local_agent.py — Run Manus as a local machine agent."""
 import os, sys, re, subprocess, time, argparse
 from pathlib import Path
 import requests

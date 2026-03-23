@@ -1,17 +1,18 @@
 ---
-name: manus-unified
-description: Operate the Manus AI system — send tasks, manage files and projects, run a local machine agent. Triggered by /manus-unified.
+name: manus
+description: Send tasks to Manus AI, manage tasks/files/projects, or run a local machine agent with step-by-step command approval.
 argument-hint: "<prompt> | tasks | task <id> | delete <id> | files | upload <path> | projects | local <task> | local --yes <task> | local"
 ---
 
-# Manus AI — Unified Skill
+# Manus AI
 
-**API:** `https://api.manus.ai/v1` | **Auth:** `MANUS_API_KEY` in `.env`
+**Base URL:** `https://api.manus.ai/v1`
+**Auth:** Set `MANUS_API_KEY` in `.env`
 
-## Command Routing
+## Routing
 
-| Arguments | Command |
-|-----------|---------|
+| Arguments | Runs |
+|-----------|------|
 | `<prompt>` | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>"` |
 | `<prompt> --mode chat` | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --mode chat` |
 | `<prompt> --mode adaptive` | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --mode adaptive` |
@@ -28,69 +29,68 @@ argument-hint: "<prompt> | tasks | task <id> | delete <id> | files | upload <pat
 | `local --yes <task>` | `python ${CLAUDE_SKILL_DIR}/scripts/local_agent.py --yes "<task>"` |
 | `local` | `python ${CLAUDE_SKILL_DIR}/scripts/local_agent.py` |
 
-## Arguments
-
 $ARGUMENTS
 
 ---
 
-## scripts/task.py — Send a Task
+## Send a Task
 
 ```
 python task.py "<prompt>"
-python task.py "<prompt>" --mode chat|agent|adaptive
+python task.py "<prompt>" --mode agent|chat|adaptive
 python task.py "<prompt>" --no-wait
 python task.py "<prompt>" --file <file_id>
 python task.py "<prompt>" --url <url>
 ```
 
-Creates a task, polls until complete, prints title / status / URL / output.
-`--no-wait` fires and forgets — prints task ID + URL only.
+- Default mode: `agent` (full reasoning). Use `chat` for fast responses, `adaptive` for auto-select.
+- `--no-wait`: fire-and-forget — prints task ID and URL without polling.
+- `--file` / `--url`: attach a file or URL to the task.
 
 ---
 
-## scripts/manage.py — Manage Resources
+## Manage Tasks, Files, Projects
 
 ```
 python manage.py tasks               # list last 20 tasks
 python manage.py task <id>           # view task output
 python manage.py delete <id>         # delete a task
 python manage.py files               # list uploaded files
-python manage.py upload <filepath>   # upload file (2-step: Manus + S3)
+python manage.py upload <filepath>   # upload file (2-step: register + S3)
 python manage.py projects            # list projects
 ```
 
 ---
 
-## scripts/local_agent.py — Local Machine Agent
+## Local Machine Agent
 
-Manus plans step by step. Each command requires approval before it runs.
+Manus generates commands step by step. Each requires approval before it executes.
 
 ```
 python local_agent.py "<task>"
-python local_agent.py "<task>" --yes      # auto-approve all
-python local_agent.py "<task>" --cwd <d>
+python local_agent.py "<task>" --yes      # auto-approve all commands
+python local_agent.py "<task>" --cwd <dir>
 python local_agent.py                     # interactive shell
 ```
 
-**Approval keys:** `y`/Enter = run | `a` = run + approve all | `n` = skip | `q` = quit
+**Approval:** `y` / Enter = run | `a` = approve all remaining | `n` = skip | `q` = quit
 
 **Auto-approved:** `dir`, `ls`, `echo`, `type`, `cat`, `pwd`, `cd`, `python --version`, `pip list`, `git status`, `git log`, `whoami`, `hostname`
 
 **Interactive built-ins:** `ls [path]` | `read <file>` | `cd <dir>` | `run <cmd>` | `exit`
 
-**Max steps:** 10 — run again to continue if reached.
+Max steps per run: **10** — re-run to continue if limit is reached.
 
 ---
 
 ## Errors
 
-| Message | Cause |
-|---------|-------|
-| `MANUS_API_KEY not set` | Missing `.env` key |
-| `Error <status>: <detail>` | API failure |
-| `File not found: <path>` | Upload path wrong |
-| `S3 upload failed: <status>` | S3 step failed |
-| `No response from Manus.` | API returned nothing |
+| Error | Cause |
+|-------|-------|
+| `MANUS_API_KEY not set` | Missing key in `.env` |
+| `Error <status>: <detail>` | API request failed |
+| `File not found: <path>` | Upload path is wrong |
+| `S3 upload failed: <status>` | Second upload step failed |
+| `No response from Manus.` | API returned empty result |
 | `Error: timed out` | Shell command exceeded 60s |
 | `Error: script timed out` | Python script exceeded 120s |

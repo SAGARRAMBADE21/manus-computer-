@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""
-task.py — Create a Manus task and wait for the result.
-Usage:
-  python task.py "<prompt>"
-  python task.py "<prompt>" --mode chat
-  python task.py "<prompt>" --no-wait
-  python task.py "<prompt>" --file <file_id>
-  python task.py "<prompt>" --url <url>
-"""
+"""task.py — Create a Manus task and wait for the result."""
 import os, sys, time, argparse
 import requests
 from dotenv import load_dotenv

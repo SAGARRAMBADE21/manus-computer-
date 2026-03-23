@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""
-manage.py — Manage Manus tasks, files, and projects.
-Usage:
-  python manage.py tasks
-  python manage.py task <id>
-  python manage.py delete <id>
-  python manage.py files
-  python manage.py upload <filepath>
-  python manage.py projects
-"""
+"""manage.py — Manage Manus tasks, files, and projects."""
 import os, sys, base64, argparse, mimetypes
 from datetime import datetime
 import requests
