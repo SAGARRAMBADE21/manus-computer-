@@ -1,12 +1,15 @@
 ---
 name: manus-unified
-description: Operate Manus AI — send tasks, manage files/projects, chat interactively, run a local machine agent, or launch the web UI. Use /manus-unified <prompt> to send a task, or: tasks | task <id> | delete <id> | files | upload <path> | projects | chat | local <task> | ui
+description: Operate the full Manus AI system — send tasks, manage files and projects, run a local machine agent with step-by-step command approval, or launch the browser-based web UI. Use /manus-unified <prompt> to send a task, or: tasks | task <id> | delete <id> | files | upload <path> | projects | chat | local <task> | ui
 argument-hint: "<prompt> | tasks | task <id> | delete <id> | files | upload <path> | projects | chat | local <task> | ui"
 ---
 
-# Manus AI Skill
+# Manus AI — Unified Skill
+
+Controls the Manus AI system via three scripts and a web UI.
 
 **API:** `https://api.manus.ai/v1` | **Auth:** `MANUS_API_KEY` in `.env`
+**API reference:** `references/api.md`
 
 ## Arguments
 $ARGUMENTS
@@ -15,156 +18,122 @@ $ARGUMENTS
 
 ## Command Routing
 
-| Arguments | Command |
-|-----------|---------|
-| `<prompt>` | `echo "<prompt>" \| python manus_cli.py` |
-| `tasks` | `python manus_cli.py --tasks` |
-| `task <id>` | `python manus_cli.py --task <id>` |
-| `delete <id>` | `python manus_cli.py --delete <id>` |
-| `files` | `python manus_cli.py --files` |
-| `upload <path>` | `python manus_cli.py --upload "<path>"` |
-| `projects` | `python manus_cli.py --projects` |
-| `chat` | `python manus_cli.py` |
-| `chat --mode chat` | `python manus_cli.py --mode chat` |
-| `nowait <prompt>` | `python manus_cli.py --no-wait` then send prompt |
-| `local <task>` | `python manus_local.py "<task>"` |
-| `local --yes <task>` | `python manus_local.py --yes "<task>"` |
-| `local` | `python manus_local.py` |
-| `ui` | `python ui/app.py` → open `http://localhost:5000` |
+Parse `$ARGUMENTS` and run the matching command:
+
+| Arguments | Script | Command |
+|-----------|--------|---------|
+| `<prompt>` | scripts/task.py | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>"` |
+| `<prompt> --mode chat` | scripts/task.py | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --mode chat` |
+| `<prompt> --no-wait` | scripts/task.py | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --no-wait` |
+| `<prompt> --file <id>` | scripts/task.py | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --file <id>` |
+| `<prompt> --url <url>` | scripts/task.py | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --url <url>` |
+| `tasks` | scripts/manage.py | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py tasks` |
+| `task <id>` | scripts/manage.py | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py task <id>` |
+| `delete <id>` | scripts/manage.py | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py delete <id>` |
+| `files` | scripts/manage.py | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py files` |
+| `upload <path>` | scripts/manage.py | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py upload "<path>"` |
+| `projects` | scripts/manage.py | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py projects` |
+| `chat` | manus_cli.py | `python manus_cli.py` |
+| `local <task>` | scripts/local_agent.py | `python ${CLAUDE_SKILL_DIR}/scripts/local_agent.py "<task>"` |
+| `local --yes <task>` | scripts/local_agent.py | `python ${CLAUDE_SKILL_DIR}/scripts/local_agent.py --yes "<task>"` |
+| `local` | scripts/local_agent.py | `python ${CLAUDE_SKILL_DIR}/scripts/local_agent.py` |
+| `ui` | scripts/start_ui.py | `python ${CLAUDE_SKILL_DIR}/scripts/start_ui.py` |
 
 ---
 
-## manus_cli.py — CLI Flags
+## Scripts
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--model` | `manus-1.6` | Model profile |
-| `--mode` | `agent` | `agent` \| `chat` \| `adaptive` |
-| `--no-wait` | off | Fire and forget |
-| `--tasks` | — | List tasks (last 20) |
-| `--task <ID>` | — | View task output |
-| `--delete <ID>` | — | Delete task |
-| `--upload <FILE>` | — | Upload file |
-| `--projects` | — | List projects |
-| `--files` | — | List files |
-| `--help` / `-h` | — | Help |
+### scripts/task.py — Send a Task
 
-### In-Chat Commands
+```
+python task.py "<prompt>"
+python task.py "<prompt>" --mode chat|agent|adaptive
+python task.py "<prompt>" --no-wait
+python task.py "<prompt>" --file <file_id>
+python task.py "<prompt>" --url <url>
+```
 
-| Command | Action |
-|---------|--------|
-| `/exit`, `/quit`, `exit`, `quit` | Quit |
-| `/tasks` | List tasks |
-| `/task <id>` | View task |
-| `/delete <id>` | Delete task |
-| `/upload <path>` | Upload file → queued for next prompt |
-| `/url <https://...>` | Queue URL for next prompt |
-| `/files` | List files |
-| `/projects` | List projects |
-| `/help` | Show help |
-| *(any text)* | Send as task (with any queued attachments) |
-
-### File & URL Attachments
-Queue files/URLs before sending a prompt — all are bundled with the next task:
-- `/upload <path>` → uploads file, queues `{"file_id": "<id>"}`
-- `/url <url>` → queues `{"url": "<url>"}` directly
-- Queue clears after each send
+Creates a task, polls until complete, prints title/status/URL/output.
+Use `--no-wait` to fire and forget (prints task ID + URL only).
+Attach a previously uploaded file with `--file` or a web URL with `--url`.
 
 ---
 
-## manus_local.py — Local Agent
+### scripts/manage.py — Manage Resources
 
-Manus AI plans steps and generates shell/Python commands. Each command requires approval before running on your machine.
+```
+python manage.py tasks               # list last 20 tasks
+python manage.py task <id>           # view task output
+python manage.py delete <id>         # delete a task
+python manage.py files               # list uploaded files
+python manage.py upload <filepath>   # upload file (2-step: Manus + S3)
+python manage.py projects            # list projects
+```
 
-### CLI Flags
+---
 
-| Flag | Description |
-|------|-------------|
-| `<task>` | Run agent loop immediately |
-| *(no args)* | Interactive shell (`Task>` prompt) |
-| `--yes` / `-y` | Auto-approve all commands |
-| `--cwd <dir>` | Set working directory |
+### scripts/local_agent.py — Local Machine Agent
 
-### Approval Keys
+Manus plans the task step by step. Each command requires approval before running.
+
+```
+python local_agent.py "<task>"           # run task
+python local_agent.py "<task>" --yes     # auto-approve all commands
+python local_agent.py "<task>" --cwd <d> # set working directory
+python local_agent.py                    # interactive shell
+```
+
+**Approval keys:**
 
 | Key | Action |
 |-----|--------|
-| `y` / Enter | Run this command |
-| `a` | Run this + auto-approve all future |
+| `y` / Enter | Run |
+| `a` | Run + auto-approve all future |
 | `n` | Skip |
 | `q` | Quit |
 
-**Auto-approved (no prompt):** `dir`, `ls`, `echo`, `type`, `cat`, `pwd`, `cd`, `python --version`, `pip list`, `git status`, `git log`, `whoami`, `hostname`
+**Auto-approved (safe reads):** `dir`, `ls`, `echo`, `type`, `cat`, `pwd`, `cd`, `python --version`, `pip list`, `git status`, `git log`, `whoami`, `hostname`
 
-**Max steps:** 10 — if reached: `Reached max steps (10). Use /local again to continue.`
+**Interactive built-ins:** `ls [path]`, `read <file>`, `cd <dir>`, `run <cmd>`, `exit`
 
-### Interactive Shell Built-ins
-
-| Command | Action |
-|---------|--------|
-| `ls [path]` / `dir [path]` | List directory |
-| `read <file>` | Read file content |
-| `cd <dir>` | Change directory |
-| `run <cmd>` | Run shell command (with approval) |
-| `exit` / `quit` | Exit |
-| *(anything else)* | Send to agent loop |
+**Max steps:** 10 — if reached, run again to continue.
 
 ---
 
-## ui/app.py — Web UI
+### scripts/start_ui.py — Web UI
 
-Browser-based local agent. Run: `python ui/app.py` → `http://localhost:5000`
-
-### Routes
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/` | Web UI |
-| GET | `/api/cwd` | Current directory |
-| POST | `/api/task` | Submit task |
-| POST | `/api/approve` | Approve / skip command |
-| GET | `/api/files` | List directory |
-| POST | `/api/read` | Read file or cd into folder |
-| POST | `/api/cd` | Change directory |
-| GET | `/api/history` | Last 20 tasks |
-
-### POST /api/task
-```json
-// Request
-{"task": "<string>"}
-
-// Response — commands to approve
-{"type": "plan", "text": "...", "commands": [...], "step_id": "<id>"}
-
-// Response — task complete
-{"type": "done", "text": "..."}
+```
+python start_ui.py                  # starts at http://localhost:5000
+python start_ui.py --port 8080
+python start_ui.py --cwd <dir>
 ```
 
-### POST /api/approve
-```json
-// Request
-{"step_id": "<id>", "cmd_index": 0, "action": "approve|skip|always"}
+Launches `ui/app.py` (Flask). Browser UI with chat, file browser, task history, and command approval (Run / Run All / Skip).
 
-// Response
-{"output": "...", "error": false, "next": {"type": "plan|done", ...}}
-```
+**Web UI routes:**
 
-### UI Features
-- **Left sidebar:** Chat, Files, History, Quick Tasks (list files / disk usage / processes / system info)
-- **Main area:** Chat with Manus, command approval buttons (Run / Run All / Skip)
-- **Right panel:** Local file browser — click file to read, click folder to navigate
+| Route | Description |
+|-------|-------------|
+| `GET /` | Web UI |
+| `POST /api/task` | Submit task → `{type, text, commands, step_id}` |
+| `POST /api/approve` | Approve/skip step → `{output, error, next}` |
+| `GET /api/files` | List directory |
+| `POST /api/read` | Read file or navigate folder |
+| `POST /api/cd` | Change directory |
+| `GET /api/cwd` | Current directory |
+| `GET /api/history` | Last 20 tasks |
 
 ---
 
 ## Errors
 
-| Error | Message |
-|-------|---------|
-| Missing API key | `MANUS_API_KEY not set` → exits |
-| API failure | `API Error <status>: <detail>` |
-| No internet | `Connection error. Check your internet.` |
-| File not found | `File not found: <path>` |
-| S3 upload fail | `S3 upload failed: <status>` |
-| No Manus response | `No response from Manus.` |
-| Shell timeout | `Error: timed out` |
-| Python timeout | `Error: script timed out` |
+| Message | Cause |
+|---------|-------|
+| `MANUS_API_KEY not set` | Missing `.env` key |
+| `Error <status>: <detail>` | API failure |
+| `Connection error. Check your internet.` | No network |
+| `File not found: <path>` | Upload path wrong |
+| `S3 upload failed: <status>` | S3 step failed |
+| `No response from Manus.` | API returned nothing |
+| `Error: timed out` | Shell command exceeded 60s |
+| `Error: script timed out` | Python script exceeded 120s |
