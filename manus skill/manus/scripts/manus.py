@@ -411,67 +411,60 @@ def local_ls(path="."):
         return "\n".join(lines) or "(empty)"
     except Exception as e: return f"Error: {e}"
 
-SYSTEM = """IMPORTANT RULES - READ CAREFULLY:
-You are a COMMAND GENERATOR for a Windows machine. You do NOT execute commands yourself.
-A local CLI will execute your commands and send you the output.
+SYSTEM = """You are a COMMAND GENERATOR for a Windows machine. You do NOT execute commands yourself.
+Generate ALL commands needed to complete the task in a single response.
 
 RULES:
-1. NEVER say "I have done X" or "I've created X" - you cannot do anything yourself
-2. ALWAYS provide the actual commands to run in ```cmd``` blocks
-3. ONLY output what needs to be executed - no fake output, no assumed results
-4. Wait for real output before saying something is done
-5. One ```cmd``` block per response with all commands for that step
+1. NEVER say "I have done X" - you cannot execute anything
+2. Provide ALL commands in one or more ```cmd``` blocks
+3. No fake output - only provide commands to run
+4. Use multiple ```cmd``` blocks if the task has distinct phases
 
 FORMAT:
 - Shell commands -> ```cmd\\n<commands>\\n```
 - Python scripts -> ```python\\n<code>\\n```
-- Write a file   -> use a cmd block: echo content > filename
+- Write a file   -> ```cmd\\necho content > filename\\n```
 
 Current working directory: {cwd}
-OS: Windows CMD"""
+OS: Windows CMD
+Directory: {listing}"""
 
 def agent_loop(task):
     cwd = os.getcwd()
     print(f"\n{BOLD}Manus Local Agent{RESET}  {DIM}cwd={cwd}{RESET}")
     print(f"{DIM}Task: {task}{RESET}\n")
-    prompt = "\n".join([
-        f"Task: {task}",
-        f"CWD: {cwd}",
-        f"Directory listing:\n{local_ls(cwd)}",
-        "",
-        SYSTEM.format(cwd=cwd),
-    ])
-    for step in range(1, MAX_STEPS + 1):
-        print(f"\n{BOLD}--- Step {step} ---{RESET}")
-        response = ask_manus(prompt)
-        if not response: print(f"{RED}No response from Manus.{RESET}"); break
-        print(f"\n{BOLD}Manus:{RESET}\n{response}\n")
-        if any(kw in response.lower() for kw in
-               ["task complete","done!","finished","all done","completed successfully",
-                "no more steps","task is complete"]):
-            print(f"{GREEN}Task completed!{RESET}"); break
-        commands = extract_commands(response)
-        if not commands:
-            print(f"{DIM}No commands found. Task may be complete.{RESET}"); break
-        outputs = []
-        for cmd in commands:
-            if cmd["type"] == "shell":
-                if approve("Shell command", cmd["code"]):
-                    outputs.append(f"$ {cmd['code']}\nOutput:\n{run_shell(cmd['code'])}")
-                else: outputs.append(f"$ {cmd['code']}\n[skipped]")
-            elif cmd["type"] == "python":
-                if approve("Python script", cmd["code"][:100] + "..."):
-                    outputs.append(f"[python script]\nOutput:\n{run_python(cmd['code'])}")
-                else: outputs.append("[python script skipped]")
-            elif cmd["type"] == "file":
-                if approve("Write file", cmd["path"]):
-                    outputs.append(write_file(cmd["path"], cmd["content"]))
-                else: outputs.append(f"File write skipped: {cmd['path']}")
-        prompt = (f"Previous step outputs:\n" + "\n\n".join(outputs) +
-                  f"\n\nCurrent directory: {os.getcwd()}\nDirectory listing:\n{local_ls()}\n\n"
-                  "Continue with the next step, or say 'Task complete' if done.")
-    else:
-        print(f"{YELLOW}Reached max steps ({MAX_STEPS}). Run again to continue.{RESET}")
+
+    # Single Manus task — 1 prompt = 1 thread
+    prompt = f"Task: {task}\n\n{SYSTEM.format(cwd=cwd, listing=local_ls(cwd))}"
+    response = ask_manus(prompt)
+    if not response:
+        print(f"{RED}No response from Manus.{RESET}"); return
+
+    print(f"\n{BOLD}Manus:{RESET}\n{response}\n")
+
+    commands = extract_commands(response)
+    if not commands:
+        print(f"{DIM}No commands to execute.{RESET}"); return
+
+    for i, cmd in enumerate(commands, 1):
+        print(f"\n{BOLD}--- Command {i}/{len(commands)} ---{RESET}")
+        if cmd["type"] == "shell":
+            if approve("Shell command", cmd["code"]):
+                run_shell(cmd["code"])
+            else:
+                print(f"{DIM}Skipped.{RESET}")
+        elif cmd["type"] == "python":
+            if approve("Python script", cmd["code"][:100] + "..."):
+                run_python(cmd["code"])
+            else:
+                print(f"{DIM}Skipped.{RESET}")
+        elif cmd["type"] == "file":
+            if approve("Write file", cmd["path"]):
+                write_file(cmd["path"], cmd["content"])
+            else:
+                print(f"{DIM}Skipped.{RESET}")
+
+    print(f"\n{GREEN}Done.{RESET}")
 
 def interactive():
     print(f"\n{BOLD}  Manus Local Agent{RESET}")
