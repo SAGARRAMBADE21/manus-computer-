@@ -12,7 +12,7 @@ import os, sys, time, argparse
 import requests
 from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
 BASE_URL = "https://api.manus.ai/v1"
 
@@ -46,11 +46,11 @@ def poll(task_id):
 
 def print_output(task):
     meta = task.get("metadata", {})
-    print(f"\n{'─'*55}")
+    print("\n" + "-" * 55)
     if meta.get("task_title"): print(meta["task_title"])
     print(f"Status : {task.get('status')}  |  Model: {task.get('model','')}")
     if meta.get("task_url"): print(f"URL    : {meta['task_url']}")
-    print(f"{'─'*55}")
+    print("-" * 55)
     for item in task.get("output", []):
         if item.get("role") != "assistant": continue
         for c in item.get("content", []):

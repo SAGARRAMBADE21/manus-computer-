@@ -14,7 +14,7 @@ from datetime import datetime
 import requests
 from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
 BASE_URL = "https://api.manus.ai/v1"
 
@@ -40,7 +40,7 @@ def cmd_tasks():
     tasks = data.get("data", []) if data else []
     if not tasks: print("No tasks found."); return
     print(f"\n{'ID':<25} {'Status':<12} {'Created':<14} Title")
-    print("─" * 75)
+    print("-" * 75)
     for t in tasks:
         print(f"{t.get('id',''):<25} {t.get('status',''):<12} "
               f"{fmt_time(t.get('created_at','0')):<14} "
@@ -50,11 +50,11 @@ def cmd_task(task_id):
     task = api("GET", f"/tasks/{task_id}")
     if not task: return
     meta = task.get("metadata", {})
-    print(f"\n{'─'*55}")
+    print("\n" + "-" * 55)
     if meta.get("task_title"): print(meta["task_title"])
     print(f"Status : {task.get('status')}  |  Model: {task.get('model','')}")
     if meta.get("task_url"): print(f"URL    : {meta['task_url']}")
-    print(f"{'─'*55}")
+    print("-" * 55)
     for item in task.get("output", []):
         if item.get("role") != "assistant": continue
         for c in item.get("content", []):
@@ -75,7 +75,7 @@ def cmd_files():
     files = data.get("data", []) if data else []
     if not files: print("No files uploaded yet."); return
     print(f"\n{'ID':<35} Name")
-    print("─" * 60)
+    print("-" * 60)
     for f in files:
         fid  = f.get("id", str(f)) if isinstance(f, dict) else str(f)
         name = f.get("filename", "") if isinstance(f, dict) else ""

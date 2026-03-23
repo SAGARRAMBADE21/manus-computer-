@@ -14,7 +14,7 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
 BASE_URL     = "https://api.manus.ai/v1"
 MAX_STEPS    = 10
@@ -155,7 +155,7 @@ def agent_loop(task):
     print(f"\nManus Local Agent  cwd={cwd}\nTask: {task}\n")
     prompt = f"Task: {task}\nCWD: {cwd}\nDirectory:\n{local_ls(cwd)}\n\n{SYSTEM.format(cwd=cwd)}"
     for step in range(1, MAX_STEPS + 1):
-        print(f"\n── Step {step} ──")
+        print(f"\n-- Step {step} --")
         response = ask_manus(prompt)
         if not response: print("No response from Manus."); break
         print(f"\nManus:\n{response}\n")
