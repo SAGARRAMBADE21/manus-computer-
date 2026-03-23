@@ -13,21 +13,21 @@ argument-hint: "<prompt> | tasks | task <id> | delete <id> | files | upload <pat
 
 | Arguments | Runs |
 |-----------|------|
-| `<prompt>` | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>"` |
-| `<prompt> --mode chat` | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --mode chat` |
-| `<prompt> --mode adaptive` | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --mode adaptive` |
-| `<prompt> --no-wait` | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --no-wait` |
-| `<prompt> --file <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --file <id>` |
-| `<prompt> --url <url>` | `python ${CLAUDE_SKILL_DIR}/scripts/task.py "<prompt>" --url <url>` |
-| `tasks` | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py tasks` |
-| `task <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py task <id>` |
-| `delete <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py delete <id>` |
-| `files` | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py files` |
-| `upload <path>` | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py upload "<path>"` |
-| `projects` | `python ${CLAUDE_SKILL_DIR}/scripts/manage.py projects` |
-| `local <task>` | `python ${CLAUDE_SKILL_DIR}/scripts/local_agent.py "<task>"` |
-| `local --yes <task>` | `python ${CLAUDE_SKILL_DIR}/scripts/local_agent.py --yes "<task>"` |
-| `local` | `python ${CLAUDE_SKILL_DIR}/scripts/local_agent.py` |
+| `<prompt>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>"` |
+| `<prompt> --mode chat` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --mode chat` |
+| `<prompt> --mode adaptive` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --mode adaptive` |
+| `<prompt> --no-wait` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --no-wait` |
+| `<prompt> --file <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --file <id>` |
+| `<prompt> --url <url>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py "<prompt>" --url <url>` |
+| `tasks` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py tasks` |
+| `task <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py task <id>` |
+| `delete <id>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py delete <id>` |
+| `files` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py files` |
+| `upload <path>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py upload "<path>"` |
+| `projects` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py projects` |
+| `local <task>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py local "<task>"` |
+| `local --yes <task>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py local --yes "<task>"` |
+| `local` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py local` |
 
 $ARGUMENTS
 
@@ -36,11 +36,11 @@ $ARGUMENTS
 ## Send a Task
 
 ```
-python task.py "<prompt>"
-python task.py "<prompt>" --mode agent|chat|adaptive
-python task.py "<prompt>" --no-wait
-python task.py "<prompt>" --file <file_id>
-python task.py "<prompt>" --url <url>
+python manus.py "<prompt>"
+python manus.py "<prompt>" --mode agent|chat|adaptive
+python manus.py "<prompt>" --no-wait
+python manus.py "<prompt>" --file <file_id>
+python manus.py "<prompt>" --url <url>
 ```
 
 - Default mode: `agent` (full reasoning). Use `chat` for fast responses, `adaptive` for auto-select.
@@ -52,12 +52,12 @@ python task.py "<prompt>" --url <url>
 ## Manage Tasks, Files, Projects
 
 ```
-python manage.py tasks               # list last 20 tasks
-python manage.py task <id>           # view task output
-python manage.py delete <id>         # delete a task
-python manage.py files               # list uploaded files
-python manage.py upload <filepath>   # upload file (2-step: register + S3)
-python manage.py projects            # list projects
+python manus.py tasks               # list last 20 tasks
+python manus.py task <id>           # view task output
+python manus.py delete <id>         # delete a task
+python manus.py files               # list uploaded files
+python manus.py upload <filepath>   # upload file (2-step: register + S3)
+python manus.py projects            # list projects
 ```
 
 ---
@@ -67,10 +67,10 @@ python manage.py projects            # list projects
 Manus generates commands step by step. Each requires approval before it executes.
 
 ```
-python local_agent.py "<task>"
-python local_agent.py "<task>" --yes      # auto-approve all commands
-python local_agent.py "<task>" --cwd <dir>
-python local_agent.py                     # interactive shell
+python manus.py local "<task>"
+python manus.py local --yes "<task>"      # auto-approve all commands
+python manus.py local --cwd <dir> "<task>"
+python manus.py local                     # interactive shell
 ```
 
 **Approval:** `y` / Enter = run | `a` = approve all remaining | `n` = skip | `q` = quit
