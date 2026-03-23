@@ -1,7 +1,7 @@
 ---
 name: manus
-description: Send tasks to Manus AI, chat interactively, manage tasks/files/projects, or run a local machine agent with step-by-step command approval.
-argument-hint: "<prompt> | chat | tasks | task <id> | delete <id> | files | upload <path> | projects | local <task> | local --yes <task> | local | help"
+description: Send tasks to Manus AI, chat interactively, and manage tasks/files/projects.
+argument-hint: "<prompt> | chat | tasks | task <id> | delete <id> | files | upload <path> | projects | local <task> | help"
 ---
 
 # Manus AI
@@ -30,8 +30,6 @@ argument-hint: "<prompt> | chat | tasks | task <id> | delete <id> | files | uplo
 | `upload <path>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py upload "<path>"` |
 | `projects` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py projects` |
 | `local <task>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py local "<task>"` |
-| `local --yes <task>` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py local --yes "<task>"` |
-| `local` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py local` |
 | `help` | `python ${CLAUDE_SKILL_DIR}/scripts/manus.py help` |
 
 $ARGUMENTS
@@ -88,24 +86,13 @@ python manus.py projects            # list projects
 
 ---
 
-## Local Machine Agent
+## Local Task
 
-Manus generates commands step by step. Each requires approval before it executes.
+Sends a task to Manus agent and streams the response in real time. Manus handles everything.
 
 ```
 python manus.py local "<task>"
-python manus.py local --yes "<task>"       # auto-approve all commands
-python manus.py local --cwd <dir> "<task>"
-python manus.py local                      # interactive shell
 ```
-
-**Approval:** `y` / Enter = run | `a` = approve all remaining | `n` = skip | `q` = quit
-
-**Auto-approved:** `dir`, `ls`, `echo`, `type`, `cat`, `pwd`, `cd`, `python --version`, `pip list`, `git status`, `git log`, `whoami`, `hostname`
-
-**Interactive built-ins:** `ls [path]` | `read <file>` | `cd <dir>` | `run <cmd>` | `exit`
-
-Max steps per run: **10** — re-run to continue if limit is reached.
 
 ---
 
@@ -118,4 +105,3 @@ Max steps per run: **10** — re-run to continue if limit is reached.
 | `Error <status>: <detail>` | API request failed |
 | `File not found: <path>` | Upload path is wrong |
 | `S3 upload failed: <status>` | Second upload step failed |
-| `No response from Manus.` | API returned empty result |

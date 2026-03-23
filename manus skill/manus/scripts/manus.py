@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 """manus.py — Manus AI CLI: send tasks, manage resources, run local agent."""
-import os, sys, re, time, base64, argparse, mimetypes, subprocess
-from pathlib import Path
+import os, sys, time, base64, argparse, mimetypes
 from datetime import datetime
 import requests
 from dotenv import load_dotenv
 
 # Enable ANSI colors on Windows
 if sys.platform == "win32":
-    import ctypes
-    ctypes.windll.kernel32.SetConsoleMode(ctypes.windll.kernel32.GetStdHandle(-11), 7)
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetConsoleMode(ctypes.windll.kernel32.GetStdHandle(-11), 7)
+    except Exception:
+        pass
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
 BASE_URL     = "https://api.manus.ai/v1"
-MAX_STEPS    = 10
-SAFE_CMDS    = {"dir","ls","echo","type","cat","pwd","cd","python --version",
-                "pip list","git status","git log","whoami","hostname"}
-always_allow = False
 
 BOLD   = "\033[1m"
 CYAN   = "\033[96m"
@@ -45,7 +43,7 @@ def api(method, path, body=None):
 
 def fmt_time(ts):
     try: return datetime.fromtimestamp(int(ts)).strftime("%b %d %H:%M")
-    except: return ts
+    except Exception: return ts
 
 def status_color(status):
     colors = {"completed": GREEN, "running": CYAN, "failed": RED, "cancelled": DIM}
@@ -100,10 +98,10 @@ def task_create(prompt, mode="agent", model="manus-1.6", attachments=None):
     try:
         r = requests.post(f"{BASE_URL}/tasks", json=body, headers=headers())
         if r.status_code not in (200, 201):
-            print(f"{RED}Error {r.status_code}: {r.text[:200]}{RESET}"); sys.exit(1)
+            print(f"{RED}Error {r.status_code}: {r.text[:200]}{RESET}"); return None
         return r.json()
     except requests.exceptions.ConnectionError:
-        print(f"{RED}Connection error. Check your internet.{RESET}"); sys.exit(1)
+        print(f"{RED}Connection error. Check your internet.{RESET}"); return None
 
 def cmd_send(args):
     attachments = []
@@ -111,6 +109,7 @@ def cmd_send(args):
     if args.url:  attachments.append({"url": args.url})
     model = getattr(args, "model", "manus-1.6")
     resp = task_create(args.prompt, args.mode, model, attachments or None)
+    if not resp: return
     task_id  = resp.get("task_id")
     task_url = resp.get("task_url", "")
     print(f"{DIM}Task: {task_id}  {task_url}{RESET}")
@@ -301,199 +300,17 @@ def cmd_help(_args=None):
 
 # ── Local agent ────────────────────────────────────────────────────────────────
 
-def agent_poll(task_id):
-    print(f"{DIM}Thinking", end="", flush=True)
-    while True:
-        try:
-            r = requests.get(f"{BASE_URL}/tasks/{task_id}", headers=headers())
-            if r.status_code != 200: print(RESET); return ""
-            task = r.json()
-            print(".", end="", flush=True)
-            if task.get("status") in ("completed", "failed", "cancelled"):
-                print(f" {task['status']}{RESET}")
-                return "\n".join(
-                    c.get("text","").strip()
-                    for item in task.get("output",[]) if item.get("role")=="assistant"
-                    for c in item.get("content",[]) if c.get("text","").strip()
-                )
-        except requests.exceptions.ConnectionError:
-            print(f"\n{YELLOW}Network blip, retrying...{RESET}", end="", flush=True)
-        time.sleep(4)
-
-def ask_manus(prompt):
-    try:
-        r = requests.post(f"{BASE_URL}/tasks",
-            json={"prompt": prompt, "agent_profile": "manus-1.6", "task_mode": "chat"},
-            headers=headers())
-        if r.status_code != 200:
-            print(f"{RED}Manus API error: {r.text[:200]}{RESET}"); return ""
-        data     = r.json()
-        task_url = data.get("task_url", "")
-        if task_url: print(f"{DIM}  {task_url}{RESET}")
-        return agent_poll(data.get("task_id", ""))
-    except requests.exceptions.ConnectionError:
-        print(f"{RED}Connection error. Check your internet.{RESET}"); return ""
-
-def extract_commands(text):
-    cmds = []
-    for m in re.finditer(r"```(cmd|shell|bash|powershell|python|ps1)\n(.*?)```",
-                         text, re.DOTALL | re.IGNORECASE):
-        lang, code = m.group(1).lower(), m.group(2).strip()
-        if not code: continue
-        lines = [l for l in code.splitlines() if l.strip()]
-        if lang != "python" and all(
-            not any(kw in l for kw in ["mkdir","echo","copy","move","del","pip","python",
-                                        "cd ","dir","type","import ","def ","print(","open(",
-                                        "git ","npm ","node "])
-            for l in lines): continue
-        cmds.append({"type": "python" if lang=="python" else "shell", "code": code})
-    for m in re.finditer(r"\*\*(?:File|Write to|Save as)[:\s]+`?([^\*\n`]+)`?\*\*\n```[^\n]*\n(.*?)```",
-                         text, re.DOTALL):
-        cmds.append({"type":"file","path":m.group(1).strip(),"content":m.group(2)})
-    return cmds
-
-def is_safe(cmd):
-    return (cmd.strip().split()[0].lower() if cmd.strip() else "") in SAFE_CMDS
-
-def approve(label, detail):
-    global always_allow
-    if always_allow: return True
-    if is_safe(detail): print(f"{DIM}  [auto-approved]{RESET}"); return True
-    print(f"\n{YELLOW}{BOLD}  Approval required:{RESET}")
-    print(f"  {label}: {BOLD}{detail[:200]}{RESET}")
-    print(f"  {DIM}[y] Yes  [a] Always  [n] Skip  [q] Quit{RESET} ", end="")
-    try: ans = input().strip().lower()
-    except (KeyboardInterrupt, EOFError): return False
-    if ans == "a": always_allow = True; return True
-    if ans == "q": sys.exit(0)
-    return ans in ("y","yes","")
-
-def run_shell(cmd):
-    lines = [l.strip() for l in cmd.splitlines() if l.strip() and not l.strip().startswith("#")]
-    out = []
-    for line in lines:
-        print(f"{CYAN}  > {line}{RESET}")
-        try:
-            r = subprocess.run(line, shell=True, capture_output=True, text=True,
-                               cwd=os.getcwd())
-            o = (r.stdout + r.stderr).strip()
-            if o: print(f"{DIM}{o[:500]}{RESET}")
-            out.append(f"> {line}\nOutput:\n{o}" if o else f"> {line}\n(ok)")
-        except Exception as e: out.append(f"> {line}\nError: {e}")
-    return "\n".join(out)
-
-def run_python(code):
-    tmp = Path(os.environ.get("TEMP","/tmp")) / "manus_script.py"
-    tmp.write_text(code, encoding="utf-8")
-    print(f"{CYAN}  [python] {tmp}{RESET}")
-    print(f"{DIM}{code[:400]}{RESET}")
-    try:
-        r = subprocess.run([sys.executable, str(tmp)], capture_output=True,
-                           text=True, cwd=os.getcwd())
-        o = (r.stdout + r.stderr).strip()
-        if o: print(f"{DIM}{o[:1000]}{RESET}")
-        return o or "(no output)"
-    except Exception as e: return f"Error: {e}"
-
-def write_file(path, content):
-    p = Path(path); p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content, encoding="utf-8")
-    print(f"{GREEN}  Written: {path}  ({len(content)} bytes){RESET}")
-    return f"File written: {path}"
-
-def local_ls(path="."):
-    try:
-        lines = []
-        for i in Path(path).iterdir():
-            tag  = "[DIR]" if i.is_dir() else "     "
-            size = i.stat().st_size if i.is_file() else 0
-            lines.append(f"{tag} {i.name}  ({size} bytes)")
-        return "\n".join(lines) or "(empty)"
-    except Exception as e: return f"Error: {e}"
-
-SYSTEM = """You are a COMMAND GENERATOR for a Windows machine. You do NOT execute commands yourself.
-Generate ALL commands needed to complete the task in a single response.
-
-RULES:
-1. NEVER say "I have done X" - you cannot execute anything
-2. Provide ALL commands in one or more ```cmd``` blocks
-3. No fake output - only provide commands to run
-4. Use multiple ```cmd``` blocks if the task has distinct phases
-
-FORMAT:
-- Shell commands -> ```cmd\\n<commands>\\n```
-- Python scripts -> ```python\\n<code>\\n```
-- Write a file   -> ```cmd\\necho content > filename\\n```
-
-Current working directory: {cwd}
-OS: Windows CMD
-Directory: {listing}"""
-
-def agent_loop(task):
-    cwd = os.getcwd()
-    print(f"\n{BOLD}Manus Local Agent{RESET}  {DIM}cwd={cwd}{RESET}")
-    print(f"{DIM}Task: {task}{RESET}\n")
-
-    # Single Manus task — 1 prompt = 1 thread
-    prompt = f"Task: {task}\n\n{SYSTEM.format(cwd=cwd, listing=local_ls(cwd))}"
-    response = ask_manus(prompt)
-    if not response:
-        print(f"{RED}No response from Manus.{RESET}"); return
-
-    print(f"\n{BOLD}Manus:{RESET}\n{response}\n")
-
-    commands = extract_commands(response)
-    if not commands:
-        print(f"{DIM}No commands to execute.{RESET}"); return
-
-    for i, cmd in enumerate(commands, 1):
-        print(f"\n{BOLD}--- Command {i}/{len(commands)} ---{RESET}")
-        if cmd["type"] == "shell":
-            if approve("Shell command", cmd["code"]):
-                run_shell(cmd["code"])
-            else:
-                print(f"{DIM}Skipped.{RESET}")
-        elif cmd["type"] == "python":
-            if approve("Python script", cmd["code"][:100] + "..."):
-                run_python(cmd["code"])
-            else:
-                print(f"{DIM}Skipped.{RESET}")
-        elif cmd["type"] == "file":
-            if approve("Write file", cmd["path"]):
-                write_file(cmd["path"], cmd["content"])
-            else:
-                print(f"{DIM}Skipped.{RESET}")
-
-    print(f"\n{GREEN}Done.{RESET}")
-
-def interactive():
-    print(f"\n{BOLD}  Manus Local Agent{RESET}")
-    print(f"  {DIM}Controls your local machine. Type a task or a command.{RESET}")
-    print(f"  {DIM}Built-ins: ls [path] | read <file> | cd <dir> | run <cmd> | exit{RESET}\n")
-    while True:
-        try: inp = input(f"{CYAN}Task>{RESET} ").strip()
-        except (KeyboardInterrupt, EOFError): print("\nGoodbye!"); break
-        if not inp: continue
-        if inp in ("exit","quit"): print("Goodbye!"); break
-        elif inp.startswith(("ls","dir")):
-            path = inp.split(" ",1)[1].strip() if " " in inp else "."
-            print(local_ls(path))
-        elif inp.startswith("read "):
-            try: print(Path(inp[5:].strip()).read_text(encoding="utf-8",errors="replace")[:3000])
-            except Exception as e: print(f"{RED}Error: {e}{RESET}")
-        elif inp.startswith("cd "):
-            try: os.chdir(inp[3:].strip()); print(f"{GREEN}cwd: {os.getcwd()}{RESET}")
-            except Exception as e: print(f"{RED}Error: {e}{RESET}")
-        elif inp.startswith("run "):
-            if approve("Shell command", inp[4:].strip()): run_shell(inp[4:].strip())
-        else: agent_loop(inp)
-
 def cmd_local(args):
-    global always_allow
-    if args.yes: always_allow = True; print(f"{YELLOW}Warning: auto-approving all commands{RESET}")
-    if args.cwd: os.chdir(args.cwd)
-    if args.task: agent_loop(" ".join(args.task))
-    else: interactive()
+    task = " ".join(args.task) if args.task else None
+    if not task:
+        print(f"{RED}Usage: manus local \"<task>\"{RESET}"); return
+    resp = task_create(task)
+    if not resp: return
+    task_id  = resp.get("task_id")
+    task_url = resp.get("task_url", "")
+    print(f"{DIM}Task: {task_id}  {task_url}{RESET}")
+    result = stream_task(task_id)
+    if result: task_print_header(result)
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
@@ -525,11 +342,9 @@ def main():
     sub.add_parser("projects", help="List projects")
     sub.add_parser("help",     help="Show help")
 
-    # local agent
-    la = sub.add_parser("local", help="Run local machine agent")
+    # local
+    la = sub.add_parser("local", help="Send task to Manus agent")
     la.add_argument("task", nargs="*")
-    la.add_argument("--yes", "-y", action="store_true")
-    la.add_argument("--cwd", help="Working directory")
 
     args = p.parse_args()
 
